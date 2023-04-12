@@ -22,6 +22,14 @@ import io.openmessaging.connector.api.component.task.Task;
 import io.openmessaging.connector.api.component.task.source.SourceConnector;
 import io.openmessaging.connector.api.errors.ConnectException;
 import io.openmessaging.internal.DefaultKeyValue;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.UUID;
+import java.util.List;
+import java.util.Set;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
@@ -40,18 +48,15 @@ import org.apache.rocketmq.connect.runtime.errors.ToleranceType;
 import org.apache.rocketmq.remoting.RPCHook;
 import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 
-import java.util.*;
-
 import static org.apache.rocketmq.connect.runtime.config.ConnectorConfig.CONNECTOR_ID;
 import static org.apache.rocketmq.connect.runtime.config.ConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static org.apache.rocketmq.connect.runtime.config.SourceConnectorConfig.CONNECT_TOPICNAME;
 
 /**
  * @author osgoo
- * @date 2022/6/16
  */
 public class ReplicatorSourceConnector extends SourceConnector {
-    private Log log = LogFactory.getLog(ReplicatorSourceConnector.class);
+    private final Log log = LogFactory.getLog(ReplicatorSourceConnector.class);
     private KeyValue connectorConfig;
     private DefaultMQAdminExt srcMQAdminExt;
 
@@ -108,12 +113,12 @@ public class ReplicatorSourceConnector extends SourceConnector {
             }
         });
         List<List<MessageQueue>> result = new ArrayList<>(maxTasks);
-        for (int i = 0;i < maxTasks;i++) {
+        for (int i = 0; i < maxTasks; i++) {
             List<MessageQueue> subTasks = new ArrayList<>();
             result.add(subTasks);
             log.info("add subTask");
         }
-        for (int i = 0;i < taskTopicInfos.size();i++) {
+        for (int i = 0; i < taskTopicInfos.size(); i++) {
             int hash = i % maxTasks;
             MessageQueue messageQueue = taskTopicInfos.get(i);
             result.get(hash).add(messageQueue);
@@ -150,9 +155,8 @@ public class ReplicatorSourceConnector extends SourceConnector {
         List<List<MessageQueue>> normalDivided = divide(messageQueues, maxTasks);
         log.info("normalDivided : " + normalDivided + " " + normalDivided);
 
-
         List<KeyValue> configs = new ArrayList<>();
-        for (int i = 0;i < maxTasks;i++) {
+        for (int i = 0; i < maxTasks; i++) {
             KeyValue keyValue = new DefaultKeyValue();
             keyValue.put(ReplicatorConnectorConfig.DIVIDED_NORMAL_QUEUES, JSON.toJSONString(normalDivided.get(i)));
 
@@ -162,7 +166,9 @@ public class ReplicatorSourceConnector extends SourceConnector {
             keyValue.put(ReplicatorConnectorConfig.SRC_CLOUD, connectorConfig.getString(ReplicatorConnectorConfig.SRC_CLOUD));
             keyValue.put(ReplicatorConnectorConfig.SRC_REGION, connectorConfig.getString(ReplicatorConnectorConfig.SRC_REGION));
             keyValue.put(ReplicatorConnectorConfig.SRC_CLUSTER, connectorConfig.getString(ReplicatorConnectorConfig.SRC_CLUSTER));
-            keyValue.put(ReplicatorConnectorConfig.SRC_INSTANCEID, connectorConfig.getString(ReplicatorConnectorConfig.SRC_INSTANCEID));
+            if (null != connectorConfig.getString(ReplicatorConnectorConfig.SRC_INSTANCEID)) {
+                keyValue.put(ReplicatorConnectorConfig.SRC_INSTANCEID, connectorConfig.getString(ReplicatorConnectorConfig.SRC_INSTANCEID));
+            }
             keyValue.put(ReplicatorConnectorConfig.SRC_ENDPOINT, connectorConfig.getString(ReplicatorConnectorConfig.SRC_ENDPOINT));
             keyValue.put(ReplicatorConnectorConfig.SRC_TOPICTAGS, connectorConfig.getString(ReplicatorConnectorConfig.SRC_TOPICTAGS));
             keyValue.put(ReplicatorConnectorConfig.SRC_ACL_ENABLE, connectorConfig.getString(ReplicatorConnectorConfig.SRC_ACL_ENABLE, "false"));
@@ -171,7 +177,9 @@ public class ReplicatorSourceConnector extends SourceConnector {
             keyValue.put(ReplicatorConnectorConfig.DEST_CLOUD, connectorConfig.getString(ReplicatorConnectorConfig.DEST_CLOUD));
             keyValue.put(ReplicatorConnectorConfig.DEST_REGION, connectorConfig.getString(ReplicatorConnectorConfig.DEST_REGION));
             keyValue.put(ReplicatorConnectorConfig.DEST_CLUSTER, connectorConfig.getString(ReplicatorConnectorConfig.DEST_CLUSTER));
-            keyValue.put(ReplicatorConnectorConfig.DEST_INSTANCEID, connectorConfig.getString(ReplicatorConnectorConfig.DEST_INSTANCEID));
+            if (null != connectorConfig.getString(ReplicatorConnectorConfig.DEST_INSTANCEID)) {
+                keyValue.put(ReplicatorConnectorConfig.DEST_INSTANCEID, connectorConfig.getString(ReplicatorConnectorConfig.DEST_INSTANCEID));
+            }
             keyValue.put(ReplicatorConnectorConfig.DEST_ENDPOINT, connectorConfig.getString(ReplicatorConnectorConfig.DEST_ENDPOINT));
             keyValue.put(ReplicatorConnectorConfig.DEST_TOPIC, connectorConfig.getString(ReplicatorConnectorConfig.DEST_TOPIC));
             keyValue.put(ReplicatorConnectorConfig.DEST_ACL_ENABLE, connectorConfig.getString(ReplicatorConnectorConfig.DEST_ACL_ENABLE, "false"));
@@ -179,6 +187,7 @@ public class ReplicatorSourceConnector extends SourceConnector {
             keyValue.put(ReplicatorConnectorConfig.DEST_SECRET_KEY, connectorConfig.getString(ReplicatorConnectorConfig.DEST_SECRET_KEY, ""));
 
             keyValue.put(ReplicatorConnectorConfig.SYNC_TPS, connectorConfig.getInt(ReplicatorConnectorConfig.SYNC_TPS, ReplicatorConnectorConfig.DEFAULT_SYNC_TPS));
+            keyValue.put(ReplicatorConnectorConfig.COMMIT_OFFSET_INTERVALS_MS, connectorConfig.getLong(ReplicatorConnectorConfig.COMMIT_OFFSET_INTERVALS_MS, 10 * 1000L));
 
             configs.add(keyValue);
             log.info("ReplicatorSourceConnector sub task config : " + keyValue);
@@ -215,18 +224,15 @@ public class ReplicatorSourceConnector extends SourceConnector {
             add(ReplicatorConnectorConfig.DEST_REGION);
             add(ReplicatorConnectorConfig.DEST_CLUSTER);
             add(ReplicatorConnectorConfig.DEST_ENDPOINT);
-            add(ReplicatorConnectorConfig.DEST_TOPIC);
-            add(ReplicatorConnectorConfig.SRC_CLOUD);
             add(ReplicatorConnectorConfig.SRC_ACL_ENABLE);
             add(ReplicatorConnectorConfig.DEST_ACL_ENABLE);
             add(ERRORS_TOLERANCE_CONFIG);
         }
     };
 
-
     @Override
     public void validate(KeyValue config) {
-        log.info("sourceconnectValidate : " + config);
+        log.info("source connector validate : " + config);
         if (StringUtils.isNotBlank(config.getString(CONNECT_TOPICNAME))) {
             log.warn("ReplicatorSourceConnector no need to set " + CONNECT_TOPICNAME + ", use " + ReplicatorConnectorConfig.DEST_TOPIC + " instead.");
             // use destInstanceId % destTopic for sink instead of CONNECT_TOPICNAME

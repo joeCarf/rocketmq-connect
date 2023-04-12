@@ -25,11 +25,7 @@ import org.apache.rocketmq.connect.runtime.common.ConnectKeyValue;
 import org.apache.rocketmq.connect.runtime.config.WorkerConfig;
 import org.apache.rocketmq.connect.runtime.controller.isolation.Plugin;
 import org.apache.rocketmq.connect.runtime.service.ConfigManagementService;
-import org.apache.rocketmq.connect.runtime.service.StagingMode;
 import org.apache.rocketmq.connect.runtime.store.ClusterConfigState;
-
-import java.util.List;
-import java.util.Map;
 
 public class TestConfigManagementService implements ConfigManagementService {
     @Override
@@ -104,8 +100,4 @@ public class TestConfigManagementService implements ConfigManagementService {
         return null;
     }
 
-    @Override
-    public StagingMode getStagingMode() {
-        return null;
-    }
 }
