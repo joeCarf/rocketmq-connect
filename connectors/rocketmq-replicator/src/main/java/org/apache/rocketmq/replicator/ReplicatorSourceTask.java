@@ -263,6 +263,7 @@ public class ReplicatorSourceTask extends SourceTask {
         pullConsumer.setNamesrvAddr(namesrvAddr);
         pullConsumer.setInstanceName(connectorConfig.generateSourceString() + "-" + UUID.randomUUID().toString());
         pullConsumer.setAutoCommit(false);
+        pullConsumer.setPullBatchSize(32);
     }
 
     private void subscribeTopicAndStartConsumer() throws MQClientException {
@@ -385,7 +386,7 @@ public class ReplicatorSourceTask extends SourceTask {
     }
 
     public synchronized boolean putPulledQueueOffset(MessageQueue mq, long currentOffset, int needAck, MessageExt msg) {
-        log.info("putPulledQueueOffset " + mq + ", currentOffset : " + currentOffset + ", ackCount : " + needAck);
+        log.trace("putPulledQueueOffset " + mq + ", currentOffset : " + currentOffset + ", ackCount : " + needAck);
         TreeMap<Long, UnAckMessage> offsets = queue2Offsets.get(mq);
         if (offsets == null) {
             TreeMap<Long, UnAckMessage> newOffsets = new TreeMap<>();
